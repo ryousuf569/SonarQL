@@ -4,5 +4,3 @@ scikit-learn
 matplotlib
 streamlit
 sqlalchemy
-python-dotenv
-polygon-api-client
