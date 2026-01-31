@@ -20,19 +20,19 @@ nqdf = pd.read_sql(nq_query, conn)
 esdf = pd.read_sql(es_query, conn)
 ymdf = pd.read_sql(ym_query, conn)
 
-def simple_ma(df, n=5): # Simple Moving Average
+def simple_ma(df, n): # Simple Moving Average
     df = df.copy()
     df[f"SMA{n}"] = df['Adj_Close'].rolling(window=n).mean()
     return df
 
-def exp_ma(series, n=20):
+def exp_ma(series, n):
     delta = 2 / (n + 1)
     ema = [series.iloc[0]]
     for t in range(1, len(series)):
         ema.append(delta * series.iloc[t] + (1 - delta) * ema[-1])
     return ema
 
-def calc_exp(df, column="Adj_Close", n=20):
+def calc_exp(df, n, column="Adj_Close"):
     df = df.copy()
     df[f"EMA{n}"] = exp_ma(df[column], n)
     return df
@@ -82,16 +82,64 @@ def calc_bollinger_percent_b(df, column="Adj_Close", n=20, k=2):
     df[f"Boll_%B{n}"] = (df[column] - lower) / (upper - lower)
     return df
 
+def calc_adx(df, column="Adj_Close", n=14): # Average Directional Index
+    df = df.copy()
+
+    high = df["High"]
+    low = df["Low"]
+    close = df[column]
+
+    plus_dm = high.diff()
+    minus_dm = low.diff().abs()
+
+    plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0.0)
+    minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0.0)
+
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(window=n).mean()
+
+    plus_di = 100 * (plus_dm.rolling(window=n).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(window=n).mean() / atr)
+
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    df[f"ADX{n}"] = dx.rolling(window=n).mean()
+
+    return df
+
+def calc_rolling_vol(df, column="Adj_Close", n=20): # Rolling Volatility (Std Dev)
+    df = df.copy()
+    returns = df[column].pct_change()
+    df[f"VOL{n}"] = returns.rolling(window=n).std()
+    return df
+
+def calc_zscore(df, column="Adj_Close", n=20): # Z-Score vs SMA(n)
+    df = df.copy()
+
+    sma = df[column].rolling(window=n).mean()
+    std = df[column].rolling(window=n).std()
+
+    df[f"Z{n}"] = (df[column] - sma) / std
+    return df
+
 def indicators(df):
 
-    sma_df = simple_ma(df)
-    ema_df = calc_exp(sma_df)
-    rsi_df = calc_rsi(ema_df)
+    sma5_df = simple_ma(df, 5)
+    sma20_df = simple_ma(sma5_df, 20)
+    ema5_df = calc_exp(sma20_df, 5)
+    ema20_df = calc_exp(ema5_df, 20)
+    rsi_df = calc_rsi(ema20_df)
     atr_df = calc_atr(rsi_df)
     obv_df = calc_obv(atr_df)
     bol_df = calc_bollinger_percent_b(obv_df)
+    adx_df = calc_adx(bol_df)
+    crv_df = calc_rolling_vol(adx_df)
+    z_df = calc_zscore(crv_df)
 
-    df = bol_df.dropna()
+    df = z_df.dropna()
 
     return df
 
