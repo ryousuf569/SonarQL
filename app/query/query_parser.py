@@ -8,15 +8,15 @@ def parse_query(query):
     SIM=(?P<sim>\d+)
     """
 
-    match = re.search(pattern, query, re.VERBOSE)
+    match = re.search(pattern, query, re.VERBOSE | re.IGNORECASE)
 
     if not match:
         raise ValueError("Invalid query format")
 
     return {
-        "indicator": match.group("indicator"),
+        "indicator": match.group("indicator").upper(),
         "change": float(match.group("change")),
-        "asset": match.group("asset"),
+        "asset": match.group("asset").upper(),
         "sim": int(match.group("sim"))
     }
 
