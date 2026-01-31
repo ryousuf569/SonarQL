@@ -1,8 +1,6 @@
-from simdata_prep import *
 import numpy as np
-import pandas as pd
 
-def monte_carlo_sim(df, indicator,threshold, n_sims, 
+def monte_carlo_sim(df, indicator, threshold, n_sims, 
                     horizon=100, band=None, min_samples=50, 
                     p_hack=True, band_multipliers=(0.5, 1.0, 1.5, 2.0)):
     df = df.copy()
@@ -11,7 +9,10 @@ def monte_carlo_sim(df, indicator,threshold, n_sims,
     df = df.dropna()
 
     # latest indicator value
-    baseline_value = df[indicator].iloc[-1]
+    try:
+        baseline_value = df[indicator].iloc[-1]
+    except KeyError:
+        return None
 
     shocked_value = baseline_value + threshold
 
@@ -84,9 +85,3 @@ def monte_carlo_sim(df, indicator,threshold, n_sims,
         "p_hacked_band": float(p_hack_band),
         "dangerous": bool(dangerous)
     }
-
-
-print(monte_carlo_sim(nqdf, 'SMA5', -0.20, 100))
-
-
-
